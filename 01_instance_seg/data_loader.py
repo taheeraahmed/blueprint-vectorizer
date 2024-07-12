@@ -40,13 +40,13 @@ class FloorplanDataset(Dataset):
               with open(os.path.join(split_root, 'ids_%d.json' % fold_id), 'r') as f:
                 f_ids.extend(json.load(f))
 
-          assert len(f_ids) == 180
+          #assert len(f_ids) == 180
 
         elif phase in ['test', 'val']:
           with open(os.path.join(split_root, 'ids_%d.json' % test_fold_id), 'r') as f:
             f_ids.extend(json.load(f))
 
-          assert len(f_ids) == 20
+          #assert len(f_ids) == 20
 
         else:
           raise Exception('Unknown phase')
@@ -100,6 +100,7 @@ class FloorplanDataset(Dataset):
         image = torch.Tensor(image)
         image = image.permute([2,0,1])
 
+        label = np.array(label, copy=True)
         label = torch.Tensor(label)
 
         data = {
@@ -183,13 +184,6 @@ class FloorplanDataset(Dataset):
         image = self.normalize(np.asarray(image))
         label = np.asarray(label)
 
-        # image_padded = resize(image_padded, [self.crop_size, self.crop_size])
-        # label_padded = resize(label_padded,
-        #                   [self.crop_size, self.crop_size],
-        #                   order=0,
-        #                   preserve_range=True,
-        #                   anti_aliasing=False)
-
         return image, label
 
 
@@ -239,11 +233,6 @@ class FloorplanDataset(Dataset):
         # resizing
         scale_size = (final_size, final_size)
         
-        # image = Image.fromarray((image*255).astype(np.uint8))
-        # label = Image.fromarray((label).astype(np.uint8))
-
-        # image = image.resize(scale_size, Image.ANTIALIAS)
-        #label = label.resize(scale_size, Image.ANTIALIAS)
         image = skimage.transform.resize(image, scale_size)
         label = skimage.transform.resize(label,
                         scale_size,
@@ -256,8 +245,6 @@ class FloorplanDataset(Dataset):
         image = Image.fromarray((image*255).astype(np.uint8))
         label = Image.fromarray((label).astype(np.uint8))
 
-        # image = self.normalize(np.asarray(image))
-        # label = np.asarray(label)
 
         return image, label
 
@@ -272,57 +259,10 @@ class FloorplanDataset(Dataset):
         return [miny, minx, maxy, maxx]
 
 
-def loader_test(configs):
-  from tqdm import tqdm
-
-  train_dataset = FloorplanDataset('train', 0, configs=configs)
-
-  train_loader = DataLoader(train_dataset,
-                            batch_size=configs.batch_size,
-                            num_workers=configs.num_workers,
-                            shuffle=True)
-  
-  for iter_i, batch_data in enumerate(tqdm(train_loader)):
-    continue
-
-
 # check dataloder ...
 if __name__ == '__main__':
 
     config_dict = load_config(file_path='utils/config.yaml')
     configs = Struct(**config_dict)
 
-    loader_test(configs)
     exit(0)
-
-    train_dataset = FloorplanDataset('test', 0, configs = configs) 
-    
-    for idx, batch_data in enumerate(train_dataset):
-        continue
-
-        image = batch_data['image']
-        label = batch_data['label']
-
-        image = image.permute([1,2,0])
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, dpi=150)
-
-        # don't visualize background as a 0 label
-       # label = np.ma.masked_where(label == 0, label)
-
-        ax1.imshow(image)
-        ax1.set_axis_off()
-
-        ax2.imshow(image)
-        ax2.imshow(label, cmap='nipy_spectral', alpha=0.7)
-        ax2.set_axis_off()
-
-        plt.tight_layout()
-        plt.show()
-        plt.close()
-        #  print(wait)
-
-
-
-# img = Image.fromarray((image*255).astype(np.uint8))
-# img.show()

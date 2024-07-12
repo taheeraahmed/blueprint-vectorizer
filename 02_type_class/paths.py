@@ -1,6 +1,6 @@
 GA_ROOT = "../data/"
 SPLITS_ROOT = GA_ROOT + "splits/"
-IMG_ROOT = GA_ROOT + "preprocess/fp_img/"
+IMG_ROOT = GA_ROOT + "preprocess/boundary_pred/"
 
 GT_SEMANTIC_ROOT = GA_ROOT + "preprocess/semantic/"
 GT_INSTANCE_ROOT = GA_ROOT + "preprocess/instance/"

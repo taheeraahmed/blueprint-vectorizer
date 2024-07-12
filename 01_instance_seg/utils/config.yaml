@@ -1,7 +1,8 @@
 # Hyper parameters
 lr: 0.0003 # 0.001 # 0.0003
 batch_size: 16 #16 #32
-max_epoch_num: 400 # 60
+max_epoch_num: 100 # 60
+patience: 10
 lr_step: 1 # 4
 lr_gamma: 0.96 # 0.92 # 0.96 # 0.98 # 0.5
 
@@ -21,7 +22,7 @@ pad_size: 224 # 16 # 64
 num_crop: 600 #400 # 1200 #400 # 100
 non_overlap: 32 # 16 # 128 # 16
 
-num_workers: 4
+num_workers: 8
 val_interval: 1
 visualize_iter: 5
 use_cuda: True
@@ -30,12 +31,15 @@ seed: 12138
 resume: False
 augmentation:
 
-base_dir: ../data
 model_path:
 exp_base_dir: ../ckpts/01_instance_seg
 visualize_dir:
+exp_dir: ../ckpts/01_instance_seg
 
 output: ./final_output
+
+# Data parameters
+base_dir: ../data
 split_dir: splits
 image_dir: preprocess/fp_img
 extra_dir: preprocess/fp_img

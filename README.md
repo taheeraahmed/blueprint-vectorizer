@@ -84,7 +84,7 @@ This stage outputs the instance segmentation of each floorplan.
 ```
 cd 01_instance_seg/
 python train.py --test_fold_id 1     # train
-python predict_new.py --test_fold 1  # predict
+python predict_new.py --test_folder ../data/preprocess/fp_img --test_fold_id 1  # predict
 
 # if you are just evaluating without GT labels
 python predict_new.py --test_folder ../data/preprocess/fp_img

@@ -9,7 +9,7 @@ import paths
 def load_and_segment(fp_id, threshold1=0.95, threshold2=10):
     # probabilities boundaries
     final_index = np.load(paths.PRED_BOUNDARY_ROOT + "%s.npy" % fp_id)
-
+    print(f"{fp_id} - final shape: {final_index.shape}")
     image = np.copy(final_index)
     h, w = image.shape
 
@@ -92,8 +92,6 @@ def seq_name_seg(seg):
 def remove_small_seg(seg, threshold=10):
 
     seg = process(seg)
-    # merge small segmens with the majority of surrounding segments
-    h, w = seg.shape
 
     unique, counts = np.unique(seg, return_counts=True)
 
@@ -102,10 +100,6 @@ def remove_small_seg(seg, threshold=10):
     # pad for solving boundary issue
     seg_pad = np.pad(seg, [(1, 1), (1, 1)], mode="constant", constant_values=-1)
 
-    # s = sum(counts)
-    # threshold  = ((h*w)/20000) # 100
-    # threshold = 10
-    # print("threshold", threshold)
 
     for key, value in unique_dic.items():
         neighbors = []
@@ -129,9 +123,6 @@ def remove_small_seg(seg, threshold=10):
                 if key in neighbor:
                     neighbor = list(filter(lambda a: a != key, neighbor))
 
-                # if -1 in neighbor:
-                #     neighbor = list(filter(lambda a: a != -1, neighbor))
-
                 # check if that pixel is boundary
                 if len(neighbor):
                     value_boundary += 1
@@ -146,9 +137,6 @@ def remove_small_seg(seg, threshold=10):
                 num = neighbors_unique.count(freq)
                 ratio = num / value_boundary
 
-                # if value < 99 or ratio > 0.9 or len(list(set(neighbors))) == 2: # 0.9
-                #     # change segment "key" to "freq"
-                #     # pass
                 seg[seg == key] = freq
 
     seg = process(seg)

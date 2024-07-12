@@ -60,3 +60,18 @@ def to_numpy(tensor):
         raise ValueError("Cannot convert {} to numpy array"
                          .format(type(tensor)))
     return tensor
+
+def dice_score(preds, labels, smooth=1e-6):
+    """
+    Calculate the Dice score.
+    :param preds: predicted labels (binary or probabilities)
+    :param labels: ground truth labels (binary)
+    :param smooth: smoothing factor to avoid division by zero
+    :return: Dice score
+    """
+    print(preds.shape, labels.shape)
+    assert preds.shape == labels.shape, "Predictions and labels must have the same shape"
+    preds = preds.view(-1)
+    labels = labels.view(-1)
+    intersection = (preds * labels).sum()
+    return (2. * intersection + smooth) / (preds.sum() + labels.sum() + smooth)

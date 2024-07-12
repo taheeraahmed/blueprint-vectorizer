@@ -23,6 +23,7 @@ def job(fp_id):
 
     # save predicted instance
     instance_pred = process_boundary.load_and_segment(fp_id)
+    print(f"{fp_id} - instance pred: {instance_pred.shape}")
     np.save(
         paths.PRED_INSTANCE_ROOT + "%s.npy" % fp_id, instance_pred, allow_pickle=False
     )
@@ -123,6 +124,5 @@ if __name__ == "__main__":
     else:
         semantic_files = glob.glob(pj(paths.IMG_ROOT, "*"))
         fp_ids = [x.split("/")[-1].split(".")[0] for x in semantic_files]
-
     with Pool(5) as p:
         p.map(job, fp_ids)

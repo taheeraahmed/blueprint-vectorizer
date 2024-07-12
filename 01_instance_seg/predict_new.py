@@ -3,25 +3,19 @@ import os
 import random
 from os.path import join as pj
 
-import metric_loss
+from tqdm import tqdm
 import numpy as np
 import torch
-import torch.nn as nn
 from data_loader_test import FloorplanDatasetTest
-from imageio import imread, imsave
 from models.github_model import *
 from models.unet import UNet
 from models.unet.unet_model import UNet
-from sklearn.decomposition import PCA
-from torch.autograd import Variable
-from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
-from utils.config import Struct, compose_config_str, load_config
-from utils.misc import count_parameters, save_checkpoint, transfer_optimizer_to_gpu
+from utils.config import Struct, load_config
 from vis_cat import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+print(device)
 args = parse_arguments()
 config_dict = load_config(file_path="utils/config.yaml")
 configs = Struct(**config_dict)
@@ -39,13 +33,9 @@ model = UNet(configs.channel, configs.embedding_dim)
 
 model_path = configs.exp_base_dir + "/%d/checkpoint_39.pth.tar" % args.test_fold_id
 if model_path:
-    # checkpoint = torch.load(configs.model_path)
-    # checkpoint = torch.load(configs.model_path, map_location = device).cuda()
     checkpoint = torch.load(
         model_path, map_location=device
     )  # , map_location=lambda storage, loc: storage)
-    # checkpoint = torch.load(configs.model_path, map_location = device)
-    # checkpoint = torch.load(configs.model_path, map_location = {'cuda:0': 'cpu'})
 
     model.load_state_dict(checkpoint["state_dict"])
     epoch_num = checkpoint["epoch"]
@@ -64,7 +54,7 @@ test_dataset = FloorplanDatasetTest(
     test_fs=test_fs,
     configs=configs,
 )
-test_loader = DataLoader(test_dataset, batch_size=1, num_workers=0, shuffle=False)
+test_loader = DataLoader(test_dataset, batch_size=16, num_workers=8, shuffle=False)
 
 flag_reset = True  # True
 n = configs.non_overlap
@@ -72,15 +62,15 @@ f_ids = []
 
 if flag_reset:
     with torch.no_grad():
+        progress_bar_test = tqdm(enumerate(test_loader), total=len(test_loader))
         for idx, batch_data in enumerate(test_dataset):
-            # torch.cuda.empty_cache()
             f_id = batch_data["f_id"]
-            check_path = configs.base_dir + "/preprocess/boundary_pred/{}.npy".format(
+            check_path = configs.base_dir + "/preprocess/boundary_pred_test/{}.npy".format(
                 f_id
             )
-            if os.path.exists(check_path):
-                print("Skipping %s" % f_id)
-                continue
+            # if os.path.exists(check_path):
+            #     print("Skipping %s" % f_id)
+            #     continue
             if not os.path.exists(os.path.dirname(check_path)):
                 os.makedirs(os.path.dirname(check_path), exist_ok=True)
 
@@ -89,22 +79,17 @@ if flag_reset:
             pad = batch_data["pad"]
 
             f_ids.append(f_id)
-
+            # TODO
             h_num = images.size(0)
             w_num = images.size(1)
 
-            # print(image_full.shape)
             _, h, w = image_full.shape
 
             h_num1 = h_num
             pred_segs = np.zeros((h_num1, w_num, 256, 256))
             pred_segs1 = np.zeros((h_num1, w_num, 256, 256))
-
             counter = 0
-            # check_path = "Data/final_index{}.npy".format(f_id)
-            # print(check_path)
-            # if not os.path.exists(check_path): # idx == 8:
-            if True:  # idx == 8:
+            if counter==0:  # idx == 8:
                 for h_i in range(h_num):
                     for w_i in range(w_num):
                         py = h_i * n
@@ -124,15 +109,13 @@ if flag_reset:
                         image = torch.unsqueeze(image, 0)
 
                         pred = model(image)
+
                         image = image.cpu()
                         pred = pred.cpu()
 
                         counter = counter + 1
-                        print(
-                            "predict sample {}: {}/{}".format(
-                                idx, counter, h_num * w_num
-                            )
-                        )
+                        progress_bar_test.set_description(f"Prediction {f_id}")
+                        progress_bar_test.set_postfix(pred_sample=f"{counter}/{h_num*w_num}")
 
                         pred = pred.detach().cpu()[0]
 
@@ -150,7 +133,6 @@ if flag_reset:
                             mode="constant",
                             constant_values=0,
                         )
-
                         image = image[
                             :,
                             :,
@@ -162,10 +144,8 @@ if flag_reset:
                             pad_new[0] : -pad_new[1] - 1,
                             pad_new[2] : -pad_new[3] - 1,
                         ]
-
                         image = torch.from_numpy(image)
                         pred = torch.from_numpy(pred)
-
                         pred_seg = segment(image, pred, "new", idx)
                         pred_seg = np.pad(
                             pred_seg,
@@ -176,10 +156,8 @@ if flag_reset:
 
                         pred_seg1 = np.copy(pred_seg)
                         pred_segs1[h_i, w_i, :, :] = pred_seg1
-
                         pred_seg = process(pred_seg)
                         # viz_image(pred_seg, h_i*w_num+w_i)
-
                         pred_segs[h_i, w_i, :, :] = pred_seg
 
                 # remove padding

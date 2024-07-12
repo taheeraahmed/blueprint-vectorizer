@@ -1,28 +1,18 @@
 import os
 import numpy as np
 import torch
-from torch.autograd import Variable
-from imageio import imsave, imread
 from skimage import measure
-from sklearn.decomposition import PCA
 import matplotlib
+from tqdm import tqdm
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import skimage.measure
-from skimage.transform import rescale
 from utils.config import *
-from utils.config import Struct, load_config, compose_config_str
-from skimage import img_as_ubyte
+from utils.config import Struct, load_config
 import cv2
 import random
-from sklearn.cluster import DBSCAN
 from sklearn.cluster import MeanShift
-from bin_mean_shift import Bin_Mean_Shift
 import torchvision.transforms as transforms
-from skimage.morphology import erosion, dilation, square
-import skimage.morphology as sm
-from PIL import Image
 
 # from skimage.segmentation import flood, flood_fill
 import itertools
@@ -109,7 +99,6 @@ def segment(input, features, name, id):
     )
 
     save_pred_seg = predict_segmentation.astype(np.uint8)
-
     return save_pred_seg
 
 
@@ -703,84 +692,6 @@ def seq_name_seg(seg):
     return seg
 
 
-def check_tiles(images, labels, segs, id):
-    raise Exception
-    # visualiz all cropped in a nice way!
-
-    segs = segs.astype("uint8")
-
-    os.makedirs("", exist_ok=True)
-
-    h_num = segs.shape[0]
-    w_num = segs.shape[1]
-    p = 14
-
-    tile_all = np.empty((0, 0))
-    image_all = np.empty((0, 0))
-    label_all = np.empty((0, 0))
-
-    for h_i in range(h_num):
-        # to assign first elements
-        w_i = 0
-        tile = segs[h_i, w_i, :, :]
-        image = tensor_to_image(images[h_i, w_i, :, :])
-        label = np.int64(labels[h_i, w_i, :, :])
-
-        tile = color_image(tile)
-        label = color_image(label)
-
-        tile = np.pad(
-            tile, [(p, p), (p, p), (0, 0)], mode="constant", constant_values=1.0
-        )
-        image = np.pad(
-            image, [(p, p), (p, p), (0, 0)], mode="constant", constant_values=1.0
-        )
-        label = np.pad(
-            label, [(p, p), (p, p), (0, 0)], mode="constant", constant_values=1.0
-        )
-
-        tile_row = tile
-        image_row = image
-        label_row = label
-
-        for w_i in range(1, w_num):
-            tile = segs[h_i, w_i, :, :]
-            image = tensor_to_image(images[h_i, w_i, :, :])
-            label = np.int64(labels[h_i, w_i, :, :])
-
-            tile = color_image(tile)
-            label = color_image(label)
-
-            tile = np.pad(
-                tile, [(p, p), (p, p), (0, 0)], mode="constant", constant_values=1.0
-            )
-            image = np.pad(
-                image, [(p, p), (p, p), (0, 0)], mode="constant", constant_values=1.0
-            )
-            label = np.pad(
-                label, [(p, p), (p, p), (0, 0)], mode="constant", constant_values=1.0
-            )
-
-            tile_row = np.concatenate((tile_row, tile), axis=1)
-            image_row = np.concatenate((image_row, image), axis=1)
-            label_row = np.concatenate((label_row, label), axis=1)
-
-        if h_i == 0:
-            tile_all = tile_row
-            image_all = image_row
-            label_all = label_row
-        else:
-            tile_all = np.concatenate((tile_all, tile_row), axis=0)
-            image_all = np.concatenate((image_all, image_row), axis=0)
-            label_all = np.concatenate((label_all, label_row), axis=0)
-
-    cv2.imwrite("" + "check_pred_{}.png".format(id), tile_all)
-    cv2.imwrite("" + "check_image_{}.png".format(id), image_all)
-    cv2.imwrite("" + "check_label_{}.png".format(id), label_all)
-
-    return
-
-
 def add_text1(image):
     # add text
     # font
@@ -947,7 +858,7 @@ def merge_tiles_2(segs, id, pad, h, w):
     h = h + pad[0] + pad[1]
     w = w + pad[2] + pad[3]
 
-    print("h, w: ", h, w, size_t, pad, h_num, w_num)
+    # print("h, w: ", h, w, size_t, pad, h_num, w_num)
     # full_index = np.zeros((h, w))
     full_index = np.zeros((h, w, 3, 3))
 
@@ -959,7 +870,6 @@ def merge_tiles_2(segs, id, pad, h, w):
     # w_num = 2
 
     for h_i in range(h_num):
-        print("*", h_i)
         for w_i in range(w_num):
             seg = segs[h_i, w_i, :, :]
             seg = seq_name_seg(seg)
@@ -988,8 +898,7 @@ def merge_tiles_2(segs, id, pad, h, w):
                     neighbor_final = neighbor_final.astype("uint32")
 
                     full_index[y, x, :, :] = full_index[y, x, :, :] + neighbor_final
-    # h = 150
-    # w = 150
+        
     sh = np.zeros((h, w))
     oo = np.zeros((h, w))
 
@@ -1170,7 +1079,7 @@ def final_seg_merge(segs, idx, pad, h, w, n, configs):
     h = h + pad[0] + pad[1]
     w = w + pad[2] + pad[3]
 
-    print("h, w: ", h, w, size_t, pad, h_num, w_num)
+    #print("h, w: ", h, w, size_t, pad, h_num, w_num)
     full_index = np.zeros((h, w, 3, 3))
     full_index = full_index.astype("uint32")
 
@@ -1180,9 +1089,9 @@ def final_seg_merge(segs, idx, pad, h, w, n, configs):
 
     # h_num = 5
     # w_num = 5
-
+    progress_bar_seg_merge = tqdm(total=h_num * w_num, position=0, leave=True)
     for h_i in range(h_num):
-        print("*", h_i)
+        #print("*", h_i)
         for w_i in range(w_num):
             seg = segs[h_i, w_i, :, :]
             seg = seq_name_seg(seg)
@@ -1191,18 +1100,12 @@ def final_seg_merge(segs, idx, pad, h, w, n, configs):
                 seg_one, [(1, 1), (1, 1)], mode="constant", constant_values=0
             )
 
-            # h_i*n:h_i*n+256, w_i*n:w_i*n+256
-
-            # for every pixel in segment
             for i in range(1, seg.shape[0] + 1):
                 for j in range(1, seg.shape[1] + 1):
                     y, x = find_xy_full(i - 1, j - 1, h_i, w_i, n)
-                    # print(x, y)
-                    # seg_ones[y, x] += 1
 
                     neighbor = seg_pad[i - 1 : i + 2, j - 1 : j + 2]
                     neighbor = neighbor.flatten()
-                    # neighbor = np.delete(neighbor, 4)
                     main_pixel = seg_pad[i, j]
                     equal_neighbor_index = np.where(neighbor == main_pixel)
                     equal_neighbor_index = np.asarray(equal_neighbor_index)[0]
@@ -1216,21 +1119,9 @@ def final_seg_merge(segs, idx, pad, h, w, n, configs):
                     neighbor_final = neighbor
                     neighbor_final = neighbor_final.astype("uint32")
                     seg_ones[y, x, :, :] = seg_ones[y, x, :, :] + neighbor_final
-
-    # remove padding
-    # final_index = final_index[pad[0]:-pad[1], pad[2]:-pad[3]]
-    full_index1 = full_index[pad[0] + 1 : -pad[1] + 1, pad[2] + 1 : -pad[3] + 1, :, :]
-    seg_ones1 = seg_ones[pad[0] + 1 : -pad[1] + 1, pad[2] + 1 : -pad[3] + 1, :, :]
+            progress_bar_seg_merge.set_postfix(h=f"{h_i}", w=f"{w_i}")
 
     # NOTE optional save files
-    # np.save(configs.base_dir + '/Data/full_index_{}.npy'.format(idx), full_index1)
-    # np.save(configs.base_dir + '/Data/seg_ones_{}.npy'.format(idx), seg_ones1)
-
-    # full_index = np.load("Data/full_index_{}.npy".format(idx))
-    # seg_ones = np.load("Data/seg_ones_{}.npy".format(idx))
-
-    # h = (h_num-1)*n+256
-    # w = (w_num-1)*n+256
     full_index_mean = np.zeros((h, w))
     seg_ones_mean = np.zeros((h, w))
     final_index = np.zeros((h, w))
@@ -1245,16 +1136,12 @@ def final_seg_merge(segs, idx, pad, h, w, n, configs):
             else:
                 final_index[i, j] = 0
 
-    # np.save('Data/full_index_mean{}.npy'.format(idx), full_index_mean)
-    # np.save('Data/seg_ones_mean{}.npy'.format(idx), seg_ones_mean)
     # remove padding
     final_index = final_index[pad[0] + 1 : -pad[1] + 1, pad[2] + 1 : -pad[3] + 1]
     np.save(
         configs.base_dir + "/preprocess/boundary_pred/{}.npy".format(idx), final_index
     )
 
-    # plt.imshow(final_index)
-    # plt.savefig("Data/final_index_{}.svg".format(idx), format='svg', dpi=1200)
     final_index_cv = np.stack((final_index,) * 3, axis=-1)
     final_index_cv = final_index_cv * 255
     cv2.imwrite(
@@ -1266,10 +1153,7 @@ def final_seg_merge(segs, idx, pad, h, w, n, configs):
 
 
 def add_text10(image):
-    # add text
-    # font
     font = cv2.FONT_HERSHEY_SIMPLEX
-    # fontScale
     fontScale = 1
     # Blue color in BGR
     color = (255, 255, 255)

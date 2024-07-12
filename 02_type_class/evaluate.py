@@ -62,13 +62,14 @@ model = torchvision.models.resnet50(num_classes=7)
 model.conv1 = nn.Conv2d(2, 64, kernel_size=7, stride=2, padding=3, bias=False)
 model.to(device)
 model.load_state_dict(torch.load(model_dir + "model_best.pt"))
+print("=> loaded checkpoint '{}'".format(model_dir + "model_best.pt"))
 model = model.eval()
 
 
 """ Stuff happens here :D """
 if args.test_folder:
     print("User-specified test folder")
-    img_files = glob.glob(pj(args.test_folder, "*"))
+    img_files = glob.glob(pj("/home/taheera/code/blueprint-vectorizer/data/preprocess/boundary_pred", "*"))
     fp_ids = [x.split("/")[-1].split(".")[0] for x in img_files]
 else:
     split_json = paths.SPLITS_ROOT + "ids_%d.json" % config["test_id"]
@@ -76,7 +77,7 @@ else:
         fp_ids = json.load(f)
 
 for fp_id in tqdm(fp_ids):
-    image = Image.open(paths.IMG_ROOT + "%s.jpg" % fp_id)
+    image = Image.open(paths.IMG_ROOT + "%s.png" % fp_id)
     image = np.array(image, dtype=np.float32) / 255.0
 
     instance_pred = np.load(paths.PRED_INSTANCE_ROOT + "%s.npy" % fp_id)
@@ -124,7 +125,7 @@ for fp_id in tqdm(fp_ids):
 
                 combined = combined.unsqueeze(0)
                 combined = combined.to(device)
-                pred = model(combined).detach().cpu()
+                pred = model(combined)
                 averaged_pred += nn.functional.softmax(pred, dim=1) / len(seeds)
 
             # NOTE background is not a class, so +1 to compensate for that
